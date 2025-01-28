@@ -95,24 +95,89 @@ async function getGuildStats() {
     }
 }
 
+async function getEconomyStats(totalCharacters, totalAccounts) {
+    try {
+        // Obtener la suma total de zeny de personajes y el zeny por cuenta
+        const charZenyResult = await query(`
+            SELECT 
+                SUM(zeny) as totalCharZeny,
+                account_id,
+                SUM(zeny) as accountCharZeny
+            FROM \`char\`
+            WHERE delete_date = 0
+            GROUP BY account_id
+        `);
+
+        // Obtener el zeny en los bancos
+        const bankZenyResult = await query(`
+            SELECT 
+                account_id,
+                bank_vault
+            FROM account_data
+        `);
+
+        // Crear un mapa de cuenta -> zeny del banco
+        const bankZenyMap = new Map();
+        let totalBankZeny = 0;
+        
+        bankZenyResult.forEach(row => {
+            bankZenyMap.set(row.account_id, row.bank_vault || 0);
+            totalBankZeny += (row.bank_vault || 0);
+        });
+
+        // Calcular totales y promedios por cuenta
+        let totalCharZeny = 0;
+        let totalZenyByAccount = new Map();
+
+        charZenyResult.forEach(row => {
+            totalCharZeny += row.totalCharZeny || 0;
+            
+            // Sumar zeny de personajes + banco para cada cuenta
+            const bankZeny = bankZenyMap.get(row.account_id) || 0;
+            const accountTotalZeny = (row.accountCharZeny || 0) + bankZeny;
+            totalZenyByAccount.set(row.account_id, accountTotalZeny);
+        });
+
+        // Calcular el zeny total y promedios
+        const totalZeny = totalCharZeny + totalBankZeny;
+        const averageZenyPerChar = totalCharacters > 0 ? Math.floor(totalCharZeny / totalCharacters) : 0;
+        
+        // Para el promedio por cuenta, solo consideramos cuentas que tienen personajes o dinero en el banco
+        const accountsWithMoney = totalZenyByAccount.size;
+        const totalZenyAllAccounts = Array.from(totalZenyByAccount.values()).reduce((a, b) => a + b, 0);
+        const averageZenyPerAccount = accountsWithMoney > 0 ? Math.floor(totalZenyAllAccounts / accountsWithMoney) : 0;
+
+        return {
+            totalZeny,
+            bankZeny: totalBankZeny,
+            averageZenyPerChar,
+            averageZenyPerAccount
+        };
+    } catch (error) {
+        console.error('Error al obtener estadísticas económicas:', error);
+        return lastStats?.economy || {
+            totalZeny: 0,
+            bankZeny: 0,
+            averageZenyPerChar: 0,
+            averageZenyPerAccount: 0
+        };
+    }
+}
+
 async function calculateServerStats() {
     try {
         // Obtener todas las estadísticas
         const accountStats = await getAccountStats();
         const characterStats = await getCharacterStats();
         const guildStats = await getGuildStats();
+        const economyStats = await getEconomyStats(characterStats.total, accountStats.total);
 
         const stats = {
             timestamp: new Date(),
             accounts: accountStats,
             characters: characterStats,
             guilds: guildStats,
-            economy: {
-                totalZeny: 0,
-                serverZeny: 0,
-                averageZenyPerChar: 0,
-                averageZenyPerAccount: 0
-            }
+            economy: economyStats
         };
 
         return stats;
