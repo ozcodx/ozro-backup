@@ -15,7 +15,7 @@ async function getAccountStats() {
         const formattedDate = weekAgo.toISOString().slice(0, 19).replace('T', ' ');
         
         const activeResult = await query(
-            'SELECT COUNT(*) as count FROM login WHERE last_login >= ?',
+            'SELECT COUNT(*) as count FROM login WHERE lastlogin >= ?',
             [formattedDate]
         );
         const activeLastWeek = activeResult[0].count;
@@ -118,38 +118,48 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
 
         // Crear un mapa de cuenta -> zeny del banco
         const bankZenyMap = new Map();
-        let totalBankZeny = 0;
+        let totalBankZeny = BigInt(0);
         
         bankZenyResult.forEach(row => {
-            bankZenyMap.set(row.account_id, row.bank_vault || 0);
-            totalBankZeny += (row.bank_vault || 0);
+            const bankVault = BigInt(row.bank_vault || 0);
+            bankZenyMap.set(row.account_id, bankVault);
+            totalBankZeny += bankVault;
         });
 
         // Calcular totales y promedios por cuenta
-        let totalCharZeny = 0;
+        let totalCharZeny = BigInt(0);
         let totalZenyByAccount = new Map();
 
         charZenyResult.forEach(row => {
-            totalCharZeny += row.totalCharZeny || 0;
+            const charZeny = BigInt(row.totalCharZeny || 0);
+            totalCharZeny += charZeny;
             
             // Sumar zeny de personajes + banco para cada cuenta
-            const bankZeny = bankZenyMap.get(row.account_id) || 0;
-            const accountTotalZeny = (row.accountCharZeny || 0) + bankZeny;
+            const bankZeny = bankZenyMap.get(row.account_id) || BigInt(0);
+            const accountTotalZeny = BigInt(row.accountCharZeny || 0) + bankZeny;
             totalZenyByAccount.set(row.account_id, accountTotalZeny);
         });
 
         // Calcular el zeny total y promedios
         const totalZeny = totalCharZeny + totalBankZeny;
-        const averageZenyPerChar = totalCharacters > 0 ? Math.floor(totalCharZeny / totalCharacters) : 0;
+        
+        // Convertir a número normal para los promedios, usando Number() para BigInt
+        const averageZenyPerChar = totalCharacters > 0 
+            ? Math.floor(Number(totalCharZeny) / totalCharacters)
+            : 0;
         
         // Para el promedio por cuenta, solo consideramos cuentas que tienen personajes o dinero en el banco
         const accountsWithMoney = totalZenyByAccount.size;
-        const totalZenyAllAccounts = Array.from(totalZenyByAccount.values()).reduce((a, b) => a + b, 0);
-        const averageZenyPerAccount = accountsWithMoney > 0 ? Math.floor(totalZenyAllAccounts / accountsWithMoney) : 0;
+        const totalZenyAllAccounts = Array.from(totalZenyByAccount.values())
+            .reduce((a, b) => a + b, BigInt(0));
+        
+        const averageZenyPerAccount = accountsWithMoney > 0 
+            ? Math.floor(Number(totalZenyAllAccounts) / accountsWithMoney)
+            : 0;
 
         return {
-            totalZeny,
-            bankZeny: totalBankZeny,
+            totalZeny: Number(totalZeny),
+            bankZeny: Number(totalBankZeny),
             averageZenyPerChar,
             averageZenyPerAccount
         };
