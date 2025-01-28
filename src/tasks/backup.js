@@ -95,8 +95,8 @@ async function performBackup() {
         
         for (const table of tables) {
             try {
-                // Obtener datos de la tabla
-                const rows = await query(`SELECT * FROM ${table}`);
+                // Obtener datos de la tabla (escapando el nombre de la tabla)
+                const rows = await query(`SELECT * FROM \`${table}\``);
                 
                 // Procesar BigInt antes de guardar JSON
                 const processedRows = processBigIntValues(rows);
