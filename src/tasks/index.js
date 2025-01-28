@@ -1,5 +1,5 @@
 import { initializeBackupTask } from './backup.js';
-import { initializeFirestoreSync } from './firestoreSync.js';
+import { startFirestoreSync } from './firestoreSync.js';
 import { initializeLoginSync } from './loginSync.js';
 
 export async function initializeTasks() {
@@ -8,7 +8,7 @@ export async function initializeTasks() {
         await initializeBackupTask();
         
         // Iniciar tarea de sincronización con Firestore
-        await initializeFirestoreSync();
+        await startFirestoreSync();
         
         // Iniciar sincronización de logins
         await initializeLoginSync();
