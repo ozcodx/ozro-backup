@@ -24,6 +24,20 @@ async function createLoginInDB(loginData, docId) {
                     character_slots
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
+
+            // Procesar lastLogin
+            let lastLogin = null;
+            if (loginData.lastLogin) {
+                try {
+                    lastLogin = new Date(loginData.lastLogin);
+                    // Verificar si la fecha es válida
+                    if (isNaN(lastLogin.getTime())) {
+                        lastLogin = null;
+                    }
+                } catch (e) {
+                    lastLogin = null;
+                }
+            }
             
             await query(sql, [
                 loginData.userid,
@@ -32,7 +46,7 @@ async function createLoginInDB(loginData, docId) {
                 loginData.email || 'a@a.com',
                 0,  // group_id default
                 0,  // state default
-                new Date(loginData.lastLogin),
+                lastLogin,  // Ahora manejamos correctamente el caso nulo
                 loginData.ip || '127.0.0.1',
                 0   // character_slots default
             ]);
@@ -41,6 +55,11 @@ async function createLoginInDB(loginData, docId) {
         }
     } catch (error) {
         console.error('Error al sincronizar login:', error);
+        // Loguear más detalles del error para debugging
+        if (error.sql) {
+            console.error('SQL Query:', error.sql);
+            console.error('SQL Message:', error.sqlMessage);
+        }
     }
 }
 
