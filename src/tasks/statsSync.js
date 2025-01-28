@@ -30,23 +30,83 @@ async function getAccountStats() {
     }
 }
 
+async function getCharacterStats() {
+    try {
+        // Total de personajes (excluyendo borrados)
+        const totalResult = await query('SELECT COUNT(*) as count FROM `char` WHERE delete_date = 0');
+        const total = totalResult[0].count;
+
+        // Personajes activos en las últimas 24 horas
+        const dayAgo = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
+        const activeResult = await query(
+            'SELECT COUNT(*) as count FROM `char` WHERE delete_date = 0 AND last_login >= ?',
+            [dayAgo]
+        );
+        const activeLast24h = activeResult[0].count;
+
+        // Nivel más alto y promedio
+        const levelStats = await query(`
+            SELECT 
+                MAX(base_level) as maxLevel,
+                AVG(base_level) as avgLevel,
+                COUNT(*) as maxLevelCount
+            FROM \`char\`
+            WHERE delete_date = 0
+            GROUP BY base_level
+            HAVING base_level = (
+                SELECT MAX(base_level)
+                FROM \`char\`
+                WHERE delete_date = 0
+            )
+        `);
+
+        const highestLevel = levelStats[0]?.maxLevel || 0;
+        const averageLevel = Math.round(levelStats[0]?.avgLevel || 0);
+        const maxLevelCount = levelStats[0]?.maxLevelCount || 0;
+
+        return {
+            total,
+            activeLast24h,
+            highestLevel,
+            averageLevel,
+            maxLevelCount
+        };
+    } catch (error) {
+        console.error('Error al obtener estadísticas de personajes:', error);
+        return lastStats?.characters || {
+            total: 0,
+            activeLast24h: 0,
+            highestLevel: 0,
+            averageLevel: 0,
+            maxLevelCount: 0
+        };
+    }
+}
+
+async function getGuildStats() {
+    try {
+        const result = await query('SELECT COUNT(*) as count FROM guild');
+        return {
+            total: result[0].count
+        };
+    } catch (error) {
+        console.error('Error al obtener estadísticas de guilds:', error);
+        return lastStats?.guilds || { total: 0 };
+    }
+}
+
 async function calculateServerStats() {
     try {
-        // Obtener estadísticas de cuentas
+        // Obtener todas las estadísticas
         const accountStats = await getAccountStats();
+        const characterStats = await getCharacterStats();
+        const guildStats = await getGuildStats();
 
         const stats = {
             timestamp: new Date(),
             accounts: accountStats,
-            characters: {
-                total: 0,
-                activeLast24h: 0,
-                highestLevel: 0,
-                averageLevel: 0
-            },
-            guilds: {
-                total: 0
-            },
+            characters: characterStats,
+            guilds: guildStats,
             economy: {
                 totalZeny: 0,
                 serverZeny: 0,
