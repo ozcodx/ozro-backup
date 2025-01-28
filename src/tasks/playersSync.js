@@ -55,8 +55,8 @@ async function updateFirestorePlayerCount(count) {
     }
 }
 
-export async function startFirestoreSync() {
-    console.log('🔄 Iniciando sincronización con Firestore...');
+export async function startPlayersSync() {
+    console.log('🔄 Iniciando sincronización de jugadores online...');
     
     // Primera ejecución inmediata
     const initialCount = await getOnlinePlayersCount();
