@@ -23,7 +23,7 @@ export async function initializeFirebase() {
     }
 }
 
-export function getFirestore() {
+export function getFirestoreDB() {
     if (!db) {
         throw new Error('Firestore no inicializado');
     }

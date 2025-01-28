@@ -28,9 +28,9 @@ npm install
    cp .env.example .env
    ```
    - Configura las variables en `.env`:
-     - Variables de Firebase (ya configuradas)
+     - Variables de Firebase
      - Variables de MariaDB
-     - Variables de Firebase Admin SDK (ver siguiente paso)
+     - Variables de Firebase Admin SDK
 
 3. Configurar Firebase Admin SDK:
    - Ve a la [Consola de Firebase](https://console.firebase.google.com/)
