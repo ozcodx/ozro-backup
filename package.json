@@ -1,0 +1,21 @@
+{
+  "name": "ozro-backup",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sistema de backup y sincronización entre MariaDB y Firestore",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "firebase-admin": "^12.0.0",
+    "mariadb": "^3.2.3",
+    "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+} 
