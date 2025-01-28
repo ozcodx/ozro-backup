@@ -25,6 +25,30 @@ function getBackupFolderName() {
            now.getSeconds().toString().padStart(2, '0');
 }
 
+function processBigIntValues(obj) {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (typeof obj === 'bigint') {
+        return obj.toString();
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(processBigIntValues);
+    }
+
+    if (typeof obj === 'object') {
+        const result = {};
+        for (const [key, value] of Object.entries(obj)) {
+            result[key] = processBigIntValues(value);
+        }
+        return result;
+    }
+
+    return obj;
+}
+
 function generateSQLInsert(tableName, rows) {
     if (rows.length === 0) return '';
     
@@ -39,6 +63,7 @@ function generateSQLInsert(tableName, rows) {
         const rowValues = columns.map(column => {
             const value = row[column];
             if (value === null) return 'NULL';
+            if (typeof value === 'bigint') return value.toString();
             if (typeof value === 'number') return value;
             if (value instanceof Date) return `'${value.toISOString().slice(0, 19).replace('T', ' ')}'`;
             return `'${value.toString().replace(/'/g, "''")}'`;
@@ -73,9 +98,12 @@ async function performBackup() {
                 // Obtener datos de la tabla
                 const rows = await query(`SELECT * FROM ${table}`);
                 
+                // Procesar BigInt antes de guardar JSON
+                const processedRows = processBigIntValues(rows);
+                
                 // Guardar JSON
                 const jsonPath = path.join(jsonDir, `${table}.json`);
-                await fs.writeFile(jsonPath, JSON.stringify(rows, null, 2));
+                await fs.writeFile(jsonPath, JSON.stringify(processedRows, null, 2));
                 
                 // Generar y guardar SQL individual
                 const sqlInsert = generateSQLInsert(table, rows);
@@ -89,6 +117,9 @@ async function performBackup() {
                 backupCount++;
             } catch (error) {
                 console.error(`Error al realizar backup de ${table}:`, error);
+                if (error instanceof TypeError && error.message.includes('BigInt')) {
+                    console.error('💡 Error de BigInt detectado, asegúrate de que los datos estén siendo procesados correctamente');
+                }
             }
         }
         

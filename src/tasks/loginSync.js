@@ -94,4 +94,4 @@ export async function initializeLoginSync() {
     });
     
     console.log('👂 Escuchando nuevos logins en Firestore');
-} 
+}
