@@ -3,16 +3,41 @@ import { getFirestoreDB } from '../services/firebase.js';
 
 let lastStats = null;
 
+async function getAccountStats() {
+    try {
+        // Total de cuentas
+        const totalResult = await query('SELECT COUNT(*) as count FROM login');
+        const total = totalResult[0].count;
+
+        // Cuentas activas en la última semana
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const formattedDate = weekAgo.toISOString().slice(0, 19).replace('T', ' ');
+        
+        const activeResult = await query(
+            'SELECT COUNT(*) as count FROM login WHERE last_login >= ?',
+            [formattedDate]
+        );
+        const activeLastWeek = activeResult[0].count;
+
+        return {
+            total,
+            activeLastWeek
+        };
+    } catch (error) {
+        console.error('Error al obtener estadísticas de cuentas:', error);
+        return lastStats?.accounts || { total: 0, activeLastWeek: 0 };
+    }
+}
+
 async function calculateServerStats() {
     try {
-        // Aquí irán todas las consultas para obtener las estadísticas
-        // Por ahora retornamos un objeto base que expandiremos después
+        // Obtener estadísticas de cuentas
+        const accountStats = await getAccountStats();
+
         const stats = {
             timestamp: new Date(),
-            accounts: {
-                total: 0,
-                activeLastWeek: 0
-            },
+            accounts: accountStats,
             characters: {
                 total: 0,
                 activeLast24h: 0,
