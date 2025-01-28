@@ -9,6 +9,14 @@ yarn-error.log
 .env.local
 .env.*.local
 
+# SSL
+ssl/
+*.key
+*.crt
+*.pem
+*.cert
+*.csr
+
 # Archivos de backup generados
 backups/
 *.backup

@@ -4,7 +4,7 @@ Sistema de backup y sincronización entre MariaDB y Firestore.
 
 ## Características
 
-- API REST para monitoreo y control
+- API REST para monitoreo y control (HTTPS)
 - Backup automático de tablas MariaDB configurables
 - Sincronización de logins entre Firestore y MariaDB
 - Tareas programadas integradas
@@ -14,6 +14,7 @@ Sistema de backup y sincronización entre MariaDB y Firestore.
 - Node.js 18 o superior
 - MariaDB
 - Cuenta de Firebase con Firestore
+- Certificados SSL (opcional)
 
 ## Configuración
 
@@ -31,6 +32,7 @@ npm install
      - Variables de Firebase
      - Variables de MariaDB
      - Variables de Firebase Admin SDK
+     - Variables de SSL (opcional)
 
 3. Configurar Firebase Admin SDK:
    - Ve a la [Consola de Firebase](https://console.firebase.google.com/)
@@ -43,7 +45,18 @@ npm install
      - `client_email` a FIREBASE_CLIENT_EMAIL
      - `private_key` a FIREBASE_PRIVATE_KEY
 
-4. Crear archivo `backup.conf` con las tablas a respaldar:
+4. Configurar SSL (opcional pero recomendado):
+   - Generar certificados autofirmados para desarrollo:
+   ```bash
+   mkdir ssl
+   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl/private.key -out ssl/certificate.crt
+   ```
+   - O usar certificados válidos para producción:
+     - Obtener certificados de una CA (Let's Encrypt, etc.)
+     - Colocar los archivos en el directorio `ssl/`
+     - Actualizar rutas en `.env` si es necesario
+
+5. Crear archivo `backup.conf` con las tablas a respaldar:
 ```
 # Una tabla por línea
 usuarios
@@ -70,6 +83,9 @@ src/
   ├── api/           # API REST
   ├── services/      # Servicios de conexión (MariaDB, Firebase)
   └── tasks/         # Tareas programadas
+ssl/                 # Certificados SSL
+  ├── private.key    # Llave privada
+  └── certificate.crt # Certificado público
 ```
 
 ## API Endpoints
