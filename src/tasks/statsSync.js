@@ -5,17 +5,17 @@ let lastStats = null;
 
 async function getAccountStats() {
     try {
-        // Total de cuentas
-        const totalResult = await query('SELECT COUNT(*) as count FROM login');
+        // Total de cuentas (excluyendo admins)
+        const totalResult = await query('SELECT COUNT(*) as count FROM login WHERE group_id = 0');
         const total = totalResult[0].count;
 
-        // Cuentas activas en la última semana
+        // Cuentas activas en la última semana (excluyendo admins)
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
         const formattedDate = weekAgo.toISOString().slice(0, 19).replace('T', ' ');
         
         const activeResult = await query(
-            'SELECT COUNT(*) as count FROM login WHERE lastlogin >= ?',
+            'SELECT COUNT(*) as count FROM login WHERE lastlogin >= ? AND group_id = 0',
             [formattedDate]
         );
         const activeLastWeek = activeResult[0].count;
@@ -32,37 +32,58 @@ async function getAccountStats() {
 
 async function getCharacterStats() {
     try {
-        // Total de personajes (excluyendo borrados)
-        const totalResult = await query('SELECT COUNT(*) as count FROM `char` WHERE delete_date = 0');
+        // Total de personajes (excluyendo borrados y cuentas admin)
+        const totalResult = await query(`
+            SELECT COUNT(*) as count 
+            FROM \`char\` c
+            JOIN login l ON c.account_id = l.account_id
+            WHERE c.delete_date = 0 AND l.group_id = 0
+        `);
         const total = totalResult[0].count;
 
         // Personajes activos en las últimas 24 horas
         const dayAgo = Math.floor(Date.now() / 1000) - (24 * 60 * 60);
-        const activeResult = await query(
-            'SELECT COUNT(*) as count FROM `char` WHERE delete_date = 0 AND last_login >= ?',
-            [dayAgo]
-        );
+        const activeResult = await query(`
+            SELECT COUNT(*) as count 
+            FROM \`char\` c
+            JOIN login l ON c.account_id = l.account_id
+            WHERE c.delete_date = 0 
+            AND c.last_login >= ?
+            AND l.group_id = 0
+        `, [dayAgo]);
         const activeLast24h = activeResult[0].count;
 
-        // Nivel más alto y promedio
-        const levelStats = await query(`
+        // Nivel más alto y conteo de personajes en ese nivel
+        const maxLevelStats = await query(`
             SELECT 
-                MAX(base_level) as maxLevel,
-                AVG(base_level) as avgLevel,
+                c.base_level as maxLevel,
                 COUNT(*) as maxLevelCount
-            FROM \`char\`
-            WHERE delete_date = 0
-            GROUP BY base_level
-            HAVING base_level = (
-                SELECT MAX(base_level)
-                FROM \`char\`
-                WHERE delete_date = 0
+            FROM \`char\` c
+            JOIN login l ON c.account_id = l.account_id
+            WHERE c.delete_date = 0
+            AND l.group_id = 0
+            AND c.base_level = (
+                SELECT MAX(ch.base_level)
+                FROM \`char\` ch
+                JOIN login lg ON ch.account_id = lg.account_id
+                WHERE ch.delete_date = 0
+                AND lg.group_id = 0
             )
+            GROUP BY c.base_level
         `);
 
-        const highestLevel = levelStats[0]?.maxLevel || 0;
-        const averageLevel = Math.round(levelStats[0]?.avgLevel || 0);
-        const maxLevelCount = levelStats[0]?.maxLevelCount || 0;
+        // Nivel promedio (consulta separada)
+        const avgLevelResult = await query(`
+            SELECT AVG(c.base_level) as avgLevel
+            FROM \`char\` c
+            JOIN login l ON c.account_id = l.account_id
+            WHERE c.delete_date = 0
+            AND l.group_id = 0
+        `);
+
+        const highestLevel = maxLevelStats[0]?.maxLevel || 0;
+        const maxLevelCount = maxLevelStats[0]?.maxLevelCount || 0;
+        const averageLevel = Math.round(avgLevelResult[0]?.avgLevel || 0);
 
         return {
             total,
@@ -100,20 +121,24 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
         // Obtener la suma total de zeny de personajes y el zeny por cuenta
         const charZenyResult = await query(`
             SELECT 
-                CAST(SUM(zeny) AS CHAR) as totalCharZeny,
-                account_id,
-                CAST(SUM(zeny) AS CHAR) as accountCharZeny
-            FROM \`char\`
-            WHERE delete_date = 0
-            GROUP BY account_id
+                CAST(SUM(c.zeny) AS CHAR) as totalCharZeny,
+                c.account_id,
+                CAST(SUM(c.zeny) AS CHAR) as accountCharZeny
+            FROM \`char\` c
+            JOIN login l ON c.account_id = l.account_id
+            WHERE c.delete_date = 0
+            AND l.group_id = 0
+            GROUP BY c.account_id
         `);
 
         // Obtener el zeny en los bancos
         const bankZenyResult = await query(`
             SELECT 
-                account_id,
-                CAST(bank_vault AS CHAR) as bank_vault
-            FROM account_data
+                a.account_id,
+                CAST(a.bank_vault AS CHAR) as bank_vault
+            FROM account_data a
+            JOIN login l ON a.account_id = l.account_id
+            WHERE l.group_id = 0
         `);
 
         // Crear un mapa de cuenta -> zeny del banco
