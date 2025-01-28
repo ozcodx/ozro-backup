@@ -14,6 +14,11 @@ async function getOnlinePlayersCount() {
 }
 
 async function updateFirestorePlayerCount(count) {
+    // Si el conteo es igual al último, no hacemos nada
+    if (count === lastPlayerCount) {
+        return;
+    }
+
     try {
         const db = getFirestoreDB();
         
@@ -35,7 +40,6 @@ async function updateFirestorePlayerCount(count) {
                     timestamp: new Date()
                 });
                 console.log(`🔄 Actualizado conteo de jugadores en Firestore: ${count}`);
-                lastPlayerCount = count;
             }
         } else {
             // Si no hay documentos, crear uno nuevo
@@ -44,8 +48,8 @@ async function updateFirestorePlayerCount(count) {
                 timestamp: new Date()
             });
             console.log(`🆕 Creado nuevo documento de estado con ${count} jugadores`);
-            lastPlayerCount = count;
         }
+        lastPlayerCount = count;
     } catch (error) {
         console.error('Error al actualizar Firestore:', error);
     }
