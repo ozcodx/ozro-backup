@@ -49,7 +49,7 @@ npm install
    - Generar certificados autofirmados para desarrollo:
    ```bash
    mkdir ssl
-   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl/private.key -out ssl/certificate.crt
+   openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout ssl/private.key -out ssl/certificate.crt -subj "/CN=172.26.0.1"
    ```
    - O usar certificados válidos para producción:
      - Obtener certificados de una CA (Let's Encrypt, etc.)
