@@ -1,6 +1,7 @@
 import { initializeBackupTask } from './backup.js';
 import { startFirestoreSync } from './firestoreSync.js';
 import { initializeLoginSync } from './loginSync.js';
+import { startStatsSync } from './statsSync.js';
 
 export async function initializeTasks() {
     try {
@@ -12,6 +13,9 @@ export async function initializeTasks() {
         
         // Iniciar sincronización de logins
         await initializeLoginSync();
+
+        // Iniciar sincronización de estadísticas
+        await startStatsSync();
         
         console.log('⏰ Tareas programadas iniciadas');
     } catch (error) {
