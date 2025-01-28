@@ -100,9 +100,9 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
         // Obtener la suma total de zeny de personajes y el zeny por cuenta
         const charZenyResult = await query(`
             SELECT 
-                SUM(zeny) as totalCharZeny,
+                CAST(SUM(zeny) AS CHAR) as totalCharZeny,
                 account_id,
-                SUM(zeny) as accountCharZeny
+                CAST(SUM(zeny) AS CHAR) as accountCharZeny
             FROM \`char\`
             WHERE delete_date = 0
             GROUP BY account_id
@@ -112,7 +112,7 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
         const bankZenyResult = await query(`
             SELECT 
                 account_id,
-                bank_vault
+                CAST(bank_vault AS CHAR) as bank_vault
             FROM account_data
         `);
 
@@ -121,7 +121,7 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
         let totalBankZeny = BigInt(0);
         
         bankZenyResult.forEach(row => {
-            const bankVault = BigInt(row.bank_vault || 0);
+            const bankVault = BigInt(row.bank_vault || '0');
             bankZenyMap.set(row.account_id, bankVault);
             totalBankZeny += bankVault;
         });
@@ -131,12 +131,12 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
         let totalZenyByAccount = new Map();
 
         charZenyResult.forEach(row => {
-            const charZeny = BigInt(row.totalCharZeny || 0);
+            const charZeny = BigInt(row.totalCharZeny || '0');
             totalCharZeny += charZeny;
             
             // Sumar zeny de personajes + banco para cada cuenta
             const bankZeny = bankZenyMap.get(row.account_id) || BigInt(0);
-            const accountTotalZeny = BigInt(row.accountCharZeny || 0) + bankZeny;
+            const accountTotalZeny = BigInt(row.accountCharZeny || '0') + bankZeny;
             totalZenyByAccount.set(row.account_id, accountTotalZeny);
         });
 
@@ -145,7 +145,7 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
         
         // Convertir a número normal para los promedios, usando Number() para BigInt
         const averageZenyPerChar = totalCharacters > 0 
-            ? Math.floor(Number(totalCharZeny) / totalCharacters)
+            ? Number(totalCharZeny / BigInt(totalCharacters))
             : 0;
         
         // Para el promedio por cuenta, solo consideramos cuentas que tienen personajes o dinero en el banco
@@ -154,20 +154,21 @@ async function getEconomyStats(totalCharacters, totalAccounts) {
             .reduce((a, b) => a + b, BigInt(0));
         
         const averageZenyPerAccount = accountsWithMoney > 0 
-            ? Math.floor(Number(totalZenyAllAccounts) / accountsWithMoney)
+            ? Number(totalZenyAllAccounts / BigInt(accountsWithMoney))
             : 0;
 
+        // Convertir los totales a string para evitar problemas con números grandes en JSON
         return {
-            totalZeny: Number(totalZeny),
-            bankZeny: Number(totalBankZeny),
+            totalZeny: totalZeny.toString(),
+            bankZeny: totalBankZeny.toString(),
             averageZenyPerChar,
             averageZenyPerAccount
         };
     } catch (error) {
         console.error('Error al obtener estadísticas económicas:', error);
         return lastStats?.economy || {
-            totalZeny: 0,
-            bankZeny: 0,
+            totalZeny: '0',
+            bankZeny: '0',
             averageZenyPerChar: 0,
             averageZenyPerAccount: 0
         };
