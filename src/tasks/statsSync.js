@@ -226,9 +226,24 @@ async function calculateServerStats() {
 function statsHaveChanged(newStats, oldStats) {
     if (!oldStats) return true;
     
+    // Función auxiliar para convertir BigInt a string recursivamente
+    function convertBigIntsToString(obj) {
+        const converted = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (typeof value === 'bigint') {
+                converted[key] = value.toString();
+            } else if (typeof value === 'object' && value !== null) {
+                converted[key] = convertBigIntsToString(value);
+            } else {
+                converted[key] = value;
+            }
+        }
+        return converted;
+    }
+    
     // Comparación profunda de las estadísticas, ignorando el timestamp
-    const newStatsCopy = { ...newStats };
-    const oldStatsCopy = { ...oldStats };
+    const newStatsCopy = convertBigIntsToString({ ...newStats });
+    const oldStatsCopy = convertBigIntsToString({ ...oldStats });
     
     delete newStatsCopy.timestamp;
     delete oldStatsCopy.timestamp;
