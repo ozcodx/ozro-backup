@@ -2,6 +2,7 @@ import { initializeBackupTask } from './backup.js';
 import { startPlayersSync } from './playersSync.js';
 import { initializeLoginSync } from './loginSync.js';
 import { startStatsSync } from './statsSync.js';
+import { startRankingsSync } from './rankingsSync.js';
 
 export async function initializeTasks() {
     try {
@@ -16,6 +17,9 @@ export async function initializeTasks() {
 
         // Iniciar sincronización de estadísticas
         await startStatsSync();
+
+        // Iniciar sincronización de rankings
+        await startRankingsSync();
         
         console.log('⏰ Tareas programadas iniciadas');
     } catch (error) {
