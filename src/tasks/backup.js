@@ -15,14 +15,26 @@ async function readBackupConfig() {
     }
 }
 
-function getBackupFolderName() {
+async function getAllTables() {
+    try {
+        const result = await query('SHOW TABLES');
+        return result.map(row => Object.values(row)[0]);
+    } catch (error) {
+        console.error('Error al obtener lista de tablas:', error);
+        return [];
+    }
+}
+
+function getBackupFolderName(isFull = false) {
     const now = new Date();
-    return now.getFullYear().toString() +
+    const folderName = now.getFullYear().toString() +
            (now.getMonth() + 1).toString().padStart(2, '0') +
-           now.getDate().toString().padStart(2, '0') +
+           now.getDate().toString().padStart(2, '0') + "_" +
            now.getHours().toString().padStart(2, '0') +
            now.getMinutes().toString().padStart(2, '0') +
            now.getSeconds().toString().padStart(2, '0');
+    
+    return isFull ? `${folderName}_full` : folderName;
 }
 
 function processBigIntValues(obj) {
@@ -75,9 +87,9 @@ function generateSQLInsert(tableName, rows) {
     return sql + values.join(',\n') + ';\n';
 }
 
-async function performBackup() {
+async function performBackup(isFull = false) {
     try {
-        const timestamp = getBackupFolderName();
+        const timestamp = getBackupFolderName(isFull);
         const backupDir = path.join('./backups', timestamp);
         
         // Crear directorios para JSON y SQL
@@ -86,8 +98,8 @@ async function performBackup() {
         await fs.mkdir(jsonDir, { recursive: true });
         await fs.mkdir(sqlDir, { recursive: true });
         
-        // Obtener lista de tablas
-        const tables = await readBackupConfig();
+        // Obtener lista de tablas según el tipo de backup
+        const tables = isFull ? await getAllTables() : await readBackupConfig();
         let backupCount = 0;
         
         // Archivo SQL combinado para todas las tablas
@@ -95,7 +107,7 @@ async function performBackup() {
         
         for (const table of tables) {
             try {
-                // Obtener datos de la tabla (escapando el nombre de la tabla)
+                // Obtener datos de la tabla
                 const rows = await query(`SELECT * FROM \`${table}\``);
                 
                 // Procesar BigInt antes de guardar JSON
@@ -129,7 +141,8 @@ async function performBackup() {
             await fs.writeFile(combinedSQLPath, combinedSQL);
         }
         
-        console.log(`📦 Backup completado en ${backupDir} (${backupCount} tablas)`);
+        const backupType = isFull ? 'completo' : 'normal';
+        console.log(`📦 Backup ${backupType} completado en ${backupDir} (${backupCount} tablas)`);
         return backupCount;
     } catch (error) {
         console.error('Error al realizar backup:', error);
@@ -138,9 +151,9 @@ async function performBackup() {
 }
 
 export async function initializeBackupTask() {
-    // Realizar backup inicial
-    console.log('🔄 Iniciando backup inicial...');
-    const tablesBackedUp = await performBackup();
+    // Realizar backup completo inicial
+    console.log('🔄 Iniciando backup completo inicial...');
+    const tablesBackedUp = await performBackup(true);
     
     if (tablesBackedUp > 0) {
         console.log('✨ Backup inicial completado exitosamente');
@@ -148,11 +161,17 @@ export async function initializeBackupTask() {
         console.warn('⚠️ No se pudo realizar el backup inicial');
     }
     
-    // Programar tarea para ejecutarse cada día a las 3 AM
+    // Programar backup diario (3 AM)
     cron.schedule('0 3 * * *', async () => {
-        console.log('🔄 Iniciando proceso de backup programado...');
-        await performBackup();
+        console.log('🔄 Iniciando proceso de backup diario...');
+        await performBackup(false);
     });
     
-    console.log('📅 Tarea de backup programada para las 3 AM');
+    // Programar backup completo semanal (Domingo 4 AM)
+    cron.schedule('0 4 * * 0', async () => {
+        console.log('🔄 Iniciando proceso de backup completo semanal...');
+        await performBackup(true);
+    });
+    
+    console.log('📅 Tareas de backup programadas: diario (3 AM) y completo (Domingo 4 AM)');
 } 
