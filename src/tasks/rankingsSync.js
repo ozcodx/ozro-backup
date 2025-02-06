@@ -12,7 +12,7 @@ async function getMvpCardIds() {
         4318, 4305, 4302, 4276, 4263, 4236, 4168, 4148, 4147, 4146,
         4145, 4144, 4143, 4142, 4137, 4135, 4134, 4132, 4131, 4128,
         4520, 4509, 4565, 4563, 4561, 4562, 4564, 4560, 4566, 4123,
-        4121, 27164,
+        4121, 27164
      ]
 }
 
@@ -24,15 +24,17 @@ async function getBossCardIds() {
         4395, 4394, 4393, 4392, 4391, 4384, 4354, 4306, 4300, 4290,
         4266, 4254, 4250, 4241, 4238, 4237, 4207, 4203, 4198, 4197,
         4183, 4179, 4174, 4171, 4169, 4163, 4147, 4130, 4111, 4105,
-        4093, 4055, 4054, 4047, 
+        4093, 4055, 4054, 4047
     ]
 }
-
 
 async function getAccountRankings() {
     try {
         const mvpCardIds = await getMvpCardIds();
         const mvpCardsStr = mvpCardIds.join(',');
+        const bossCardIds = await getBossCardIds();
+        const bossCardsStr = bossCardIds.join(','); 
+
 
         const rankings = await query(`
             WITH AccountItems AS (
@@ -88,6 +90,13 @@ async function getAccountRankings() {
                         WHERE ai.account_id = l.account_id
                         AND EXISTS (SELECT 1 FROM item_db WHERE id = ai.item_id AND type = 6)
                     ) AS CHAR) as total_cards,
+                    -- Total de cartas distintas
+                    CAST((
+                        SELECT COUNT(DISTINCT ai.item_id)
+                        FROM AccountItems ai
+                        WHERE ai.account_id = l.account_id
+                        AND EXISTS (SELECT 1 FROM item_db WHERE id = ai.item_id AND type = 6)
+                    ) AS CHAR) as total_cards_distinct,
                     -- Total de cartas MVP
                     CAST((
                         SELECT COALESCE(SUM(amount), 0)
@@ -95,6 +104,13 @@ async function getAccountRankings() {
                         WHERE ai.account_id = l.account_id
                         AND ai.item_id IN (${mvpCardsStr})
                     ) AS CHAR) as total_mvp_cards,
+                    -- Total de cartas Boss
+                    CAST((
+                        SELECT COALESCE(SUM(amount), 0)
+                        FROM AccountItems ai
+                        WHERE ai.account_id = l.account_id
+                        AND ai.item_id IN (${bossCardsStr})
+                    ) AS CHAR) as total_boss_cards,
                     -- Total de diamantes
                     CAST((
                         SELECT COALESCE(SUM(amount), 0)
@@ -112,10 +128,14 @@ async function getAccountRankings() {
                 logincount,
                 total_zeny,
                 total_cards,
+                total_cards_distinct,
                 total_mvp_cards,
+                total_boss_cards,
                 total_diamonds
             FROM AccountTotals
             ORDER BY CAST(total_zeny AS DECIMAL(20)) DESC
+
+
         `);
 
         return rankings.map(row => ({
@@ -124,8 +144,11 @@ async function getAccountRankings() {
             logincount: row.logincount,
             total_zeny: row.total_zeny,
             total_cards: row.total_cards,
+            total_cards_distinct: row.total_cards_distinct,
             total_mvp_cards: row.total_mvp_cards,
+            total_boss_cards: row.total_boss_cards,
             total_diamonds: row.total_diamonds
+
         }));
     } catch (error) {
         console.error('Error al obtener rankings de cuentas:', error);
@@ -153,62 +176,21 @@ async function getCharacterRankings() {
             ORDER BY c.base_level DESC, c.base_exp DESC
         `);
 
-        // Obtener rankings por clase
-        const classByLevel = await query(`
-            SELECT 
-                c.class,
-                c.char_id,
-                c.account_id,
-                l.userid,
-                c.name,
-                c.base_level,
-                CAST(c.base_exp AS CHAR) as base_exp,
-                CAST(c.job_exp AS CHAR) as job_exp,
-                c.fame
-            FROM \`char\` c
-            JOIN login l ON c.account_id = l.account_id
-            WHERE c.delete_date = 0
-            AND l.group_id != 99
-            ORDER BY c.class, c.base_level DESC, c.base_exp DESC
-        `);
-
-        // Agrupar personajes por clase
-        const rankingsByClass = {};
-        classByLevel.forEach(char => {
-            if (!rankingsByClass[char.class]) {
-                rankingsByClass[char.class] = [];
-            }
-            rankingsByClass[char.class].push({
-                char_id: char.char_id,
-                account_id: char.account_id,
-                userid: char.userid,
-                name: char.name,
-                base_level: char.base_level,
-                base_exp: char.base_exp,
-                job_exp: char.job_exp,
-                fame: char.fame
-            });
-        });
-
-        return {
-            overall: rankings.map(row => ({
-                char_id: row.char_id,
-                account_id: row.account_id,
-                userid: row.userid,
-                name: row.name,
-                class: row.class,
-                base_level: row.base_level,
-                base_exp: row.base_exp,
-                job_exp: row.job_exp,
-                fame: row.fame
-            })),
-            byClass: rankingsByClass
-        };
+        return rankings.map(row => ({
+            char_id: row.char_id,
+            account_id: row.account_id,
+            userid: row.userid,
+            name: row.name,
+            class: row.class,
+            base_level: row.base_level,
+            base_exp: row.base_exp,
+            job_exp: row.job_exp,
+            fame: row.fame
+        }));
     } catch (error) {
         console.error('Error al obtener rankings de personajes:', error);
         return {
-            overall: [],
-            byClass: {}
+            overall: []
         };
     }
 }
